@@ -1,0 +1,34 @@
+name: Deploy CloudFormation Stack
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/cloudformation.yaml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for OIDC token issuance
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy CloudFormation Stack
+        run: |
+          aws cloudformation deploy \
+            --template-file deploy/cloudformation.yaml \
+            --stack-name ${{ vars.STACK_NAME }} \
+            --parameter-overrides \
+              KeyName=${{ secrets.EC2_KEY_NAME }} \
+              SSHLocation=${{ secrets.SSH_LOCATION }} \
+              VpcId=${{ vars.VPC_ID }} \
+              SubnetId=${{ vars.SUBNET_ID }} \
+            --no-fail-on-empty-changeset

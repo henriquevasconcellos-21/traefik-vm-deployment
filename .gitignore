@@ -1,6 +1,9 @@
 traefik/data/acme.json
 .DS_Store
 
+# SSH private keys
+*.pem
+
 # Environment variables
 .env
 .env.*
