@@ -130,7 +130,8 @@ Then → **Permissions** → **Add permissions** → **Create inline policy** �
       "Sid": "SSMForAmiLookup",
       "Effect": "Allow",
       "Action": [
-        "ssm:GetParameter"
+        "ssm:GetParameter",
+        "ssm:GetParameters"
       ],
       "Resource": "arn:aws:ssm:*::parameter/aws/service/ami-amazon-linux-latest/*"
     }
