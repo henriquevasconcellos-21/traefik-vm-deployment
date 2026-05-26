@@ -33,4 +33,5 @@ jobs:
               SSHLocation=${{ secrets.SSH_LOCATION }} \
               VpcId=${{ vars.VPC_ID }} \
               SubnetId=${{ vars.SUBNET_ID }} \
+            --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset
