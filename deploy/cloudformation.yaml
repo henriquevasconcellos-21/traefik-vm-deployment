@@ -64,6 +64,7 @@ Resources:
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
+      InstanceProfileName: !Sub "${AWS::StackName}-EC2InstanceProfile"
       Roles:
         - !Ref EC2IAMRole
 
