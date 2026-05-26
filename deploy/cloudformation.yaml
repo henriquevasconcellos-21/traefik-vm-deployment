@@ -35,6 +35,38 @@ Parameters:
     Default: '/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64'
 
 Resources:
+  EC2IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-EC2Role"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3WritePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - arn:aws:s3:::henrique-bucket-5465
+                  - arn:aws:s3:::henrique-bucket-5465/*
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2IAMRole
+
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -66,6 +98,7 @@ Resources:
       KeyName: !Ref KeyName
       SubnetId: !Ref SubnetId
       ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2InstanceProfile
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
