@@ -1,38 +1,54 @@
-# Deployment Instructions
+# Deployment
 
-This folder contains a CloudFormation template to deploy an EC2 instance pre-configured with Docker and Docker Compose, ready to host Traefik and your applications.
+This folder contains the infrastructure-as-code to provision a VM pre-configured with Docker and Docker Compose, ready to host Traefik and your applications.
 
-## Resources Created
+Two providers are supported:
 
-- **EC2 Instance**: Amazon Linux 2023 with Docker and Docker Compose installed via UserData.
-- **Security Group**: Allows inbound traffic on ports 80 (HTTP), 443 (HTTPS), and 22 (SSH).
-- **Elastic IP**: Provides a stable public IP address for your server.
-
-## Parameters
-
-| Parameter | Default | Notes |
+| Provider | Tool | Free tier |
 |---|---|---|
-| `InstanceType` | `t2.micro` | Free Tier eligible |
-| `KeyName` | — | Name of an existing EC2 Key Pair |
-| `VpcId` | — | ID of your existing VPC |
-| `SubnetId` | — | ID of a public subnet in your VPC |
-| `SSHLocation` | — | Your IP in CIDR form, e.g. `1.2.3.4/32` |
-| `LatestAmiId` | Latest AL2023 | Resolved automatically via SSM |
+| AWS | CloudFormation | t2.micro — 750 hrs/month, **12 months only** |
+| OCI | Terraform | VM.Standard.A1.Flex (ARM) — **always free** |
 
-## Manual Deploy
+---
 
-1. Go to the AWS Console → **CloudFormation** → **Create stack** → **With new resources**
-2. Upload `cloudformation.yaml`
+## Folder structure
+
+```
+deploy/
+  aws/
+    cloudformation.yaml       # EC2 + Security Group + Elastic IP
+  oci/
+    providers.tf              # Terraform provider and S3 backend config
+    variables.tf              # All input variables
+    main.tf                   # VCN, subnet, compute instance, reserved IP
+    outputs.tf                # Instance ID, public IP, SSH command
+    terraform.tfvars.example  # Template for your local variables file
+```
+
+---
+
+## AWS (CloudFormation)
+
+### Resources created
+
+- EC2 instance (Amazon Linux 2023, Docker + Docker Compose pre-installed)
+- Security Group (ports 80, 443 open to all; port 22 restricted to your IP)
+- Elastic IP
+
+### Manual deploy
+
+1. Go to AWS Console → **CloudFormation** → **Create stack** → **With new resources**
+2. Upload `aws/cloudformation.yaml`
 3. Fill in the parameters and create the stack
 4. Once complete, find the public IP in the **Outputs** tab
 
-## Automated Deploy (GitHub Actions)
+### Automated deploy (GitHub Actions)
 
-Pushing a change to `deploy/cloudformation.yaml` on `main` automatically deploys the stack via the workflow at `.github/workflows/deploy-cloudformation.yml`.
+Pushing any change to `deploy/aws/` on `main` automatically deploys the stack via `.github/workflows/deploy-aws.yml`.
 
-### One-time AWS setup
+#### One-time AWS setup
 
-#### 1. Add GitHub as an OIDC Identity Provider
+**1. Add GitHub as an OIDC Identity Provider**
 
 IAM → **Identity providers** → **Add provider**:
 - Provider type: **OpenID Connect**
@@ -41,7 +57,7 @@ IAM → **Identity providers** → **Add provider**:
 
 Only needs to be done once per AWS account.
 
-#### 2. Create the IAM Role
+**2. Create the IAM Role**
 
 IAM → **Roles** → **Create role**:
 - Trusted entity: **Web identity**
@@ -129,54 +145,135 @@ Then → **Permissions** → **Add permissions** → **Create inline policy** �
     {
       "Sid": "SSMForAmiLookup",
       "Effect": "Allow",
-      "Action": [
-        "ssm:GetParameter",
-        "ssm:GetParameters"
-      ],
+      "Action": ["ssm:GetParameter", "ssm:GetParameters"],
       "Resource": "arn:aws:ssm:*::parameter/aws/service/ami-amazon-linux-latest/*"
+    },
+    {
+      "Sid": "S3TerraformState",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::<TF_STATE_BUCKET>",
+        "arn:aws:s3:::<TF_STATE_BUCKET>/projects/deployment/OCI/*"
+      ]
     }
   ]
 }
 ```
 
-#### 3. Add GitHub Secrets and Variables
+Replace `<TF_STATE_BUCKET>` with the name of the S3 bucket you'll use for Terraform state.
+
+> The S3 permission block is only needed if you're also using the OCI deployment, since it stores its Terraform state in this same AWS role.
+
+**3. Add GitHub Secrets and Variables**
 
 Go to your GitHub repo → **Settings** → **Secrets and variables** → **Actions**.
 
-**Secrets** (masked in logs):
+Secrets (masked in logs):
 
 | Name | Value |
 |---|---|
 | `AWS_ROLE_ARN` | ARN of the role created above |
-| `EC2_KEY_NAME` | Name of your EC2 key pair (not the `.pem` file) |
-| `SSH_LOCATION` | Your IP in CIDR form, e.g. `203.0.113.5/32` |
+| `CF_KEY_NAME` | Name of your EC2 key pair |
+| `CF_SSH_LOCATION` | Your IP in CIDR form, e.g. `203.0.113.5/32` |
 
-**Variables** (plain config):
+Variables (plain config, visible in logs):
 
 | Name | Example |
 |---|---|
 | `AWS_REGION` | `us-east-1` |
-| `VPC_ID` | `vpc-0abc123def456` |
-| `SUBNET_ID` | `subnet-0abc123def456` |
 | `STACK_NAME` | `traefik-vm` |
+| `CF_VPC_ID` | `vpc-0abc123def456` |
+| `CF_SUBNET_ID` | `subnet-0abc123def456` |
+| `CF_AVAILABILITY_ZONE` | `us-east-1a` |
+| `CF_OWNER` | `admin` |
 
-## Post-Deployment
+---
+
+## OCI (Terraform)
+
+### Resources created
+
+- VCN + Internet Gateway + Route Table + Security List (equivalent to VPC)
+- Subnet
+- Compute instance (Oracle Linux 9, ARM, Docker + Docker Compose pre-installed)
+- Reserved public IP (equivalent to Elastic IP)
+
+### Terraform state
+
+Terraform state is stored remotely in an S3 bucket at:
+```
+s3://<TF_STATE_BUCKET>/projects/deployment/OCI/terraform.tfstate
+```
+
+This uses the same IAM role as the AWS deployment via OIDC — no extra credentials needed.
+
+### Manual deploy
+
+Copy the example vars file and fill it in:
+```bash
+cd deploy/oci
+cp terraform.tfvars.example terraform.tfvars
+# edit terraform.tfvars with your values
+```
+
+Then run:
+```bash
+terraform init \
+  -backend-config="bucket=YOUR_BUCKET" \
+  -backend-config="key=projects/deployment/OCI/terraform.tfstate" \
+  -backend-config="region=us-east-1"
+
+terraform plan
+terraform apply
+```
+
+### Automated deploy (GitHub Actions)
+
+Pushing any change to `deploy/oci/` on `main` automatically deploys the stack via `.github/workflows/deploy-oci.yml`.
+
+Uses the same IAM role as the AWS workflow (OIDC setup above) to access S3 for state storage.
+
+**Additional secrets required:**
+
+| Name | Value |
+|---|---|
+| `TF_STATE_BUCKET` | S3 bucket name for Terraform state |
+| `OCI_TENANCY_OCID` | From OCI Console → Profile |
+| `OCI_USER_OCID` | From OCI Console → Profile |
+| `OCI_FINGERPRINT` | From your API key in OCI Console |
+| `OCI_PRIVATE_KEY` | Contents of your `.pem` API key file |
+| `OCI_COMPARTMENT_OCID` | Target compartment OCID |
+| `OCI_AVAILABILITY_DOMAIN` | e.g. `Uocm:US-ASHBURN-AD-1` |
+| `OCI_SSH_PUBLIC_KEY` | Contents of your `~/.ssh/id_rsa.pub` |
+| `OCI_SSH_CIDR` | Your IP in CIDR form, e.g. `203.0.113.5/32` |
+
+Variables:
+
+| Name | Example |
+|---|---|
+| `OCI_REGION` | `us-ashburn-1` |
+
+---
+
+## Post-deployment
 
 SSH into the instance:
 
 ```bash
+# AWS
 ssh -i your-key.pem ec2-user@<PublicIP>
+
+# OCI
+ssh opc@<PublicIP>
 ```
 
-Clone this repo into the app directory:
+Clone this repo and start Traefik:
 
 ```bash
-cd /home/ec2-user/app
+cd ~/app
 git clone <your-repo-url> .
-```
-
-Configure your `.env` file based on `.env.example`, then start Traefik:
-
-```bash
+cp .env.example .env
+# edit .env with your DOMAIN and ACME_EMAIL
 docker compose up -d
 ```

@@ -1,8 +1,21 @@
 # Infrastructure & Deployment Guide
 
-This project manages a shared Traefik reverse proxy on an EC2 instance, enabling dynamic routing and automatic SSL (Let's Encrypt) for multiple containerized applications.
+This project manages a shared Traefik reverse proxy on a cloud VM, enabling dynamic routing and automatic SSL (Let's Encrypt) for multiple containerized applications.
 
-## 1. Deploying to an Existing EC2
+## 1. Provisioning the VM
+
+Before deploying Traefik you need a VM to run it on. Infrastructure-as-code templates for two providers are available in the [`deploy/`](./deploy/README.md) folder:
+
+| Provider | Tool | Free tier |
+|---|---|---|
+| AWS | CloudFormation | t2.micro — 750 hrs/month, 12 months only |
+| OCI | Terraform | VM.Standard.A1.Flex (ARM) — always free |
+
+Both are wired to GitHub Actions and deploy automatically when you push changes to their respective `deploy/aws/` or `deploy/oci/` folders. See [`deploy/README.md`](./deploy/README.md) for full setup instructions.
+
+---
+
+## 2. Deploying to an Existing EC2
 
 ### Prerequisites
 - **EC2 Instance:** Running Ubuntu (recommended) or Amazon Linux 2.
@@ -13,10 +26,10 @@ This project manages a shared Traefik reverse proxy on an EC2 instance, enabling
 ### Recommended Directory Structure
 We recommend keeping your infrastructure and applications organized as follows:
 ```text
-/home/ubuntu/
-├── traefik-vm-deployment/  # This repository (Shared Proxy)
-└── apps/                    # All your applications
-    ├── app-1/               # NestJS + Vuejs project
+/home/ec2-user/   # AWS  (use /home/opc/ on OCI)
+├── app/                         # This repository (Shared Proxy)
+└── apps/                        # All your applications
+    ├── app-1/                   # NestJS + Vuejs project
     │   └── docker-compose.yml
     └── app-2/
         └── docker-compose.yml
@@ -24,9 +37,13 @@ We recommend keeping your infrastructure and applications organized as follows:
 
 ### Step-by-Step Deployment
 
-1. **Connect to your EC2:**
+1. **Connect to your VM:**
    ```bash
-   ssh -i your-key.pem ubuntu@your-ec2-ip
+   # AWS
+   ssh -i your-key.pem ec2-user@your-ec2-ip
+
+   # OCI
+   ssh opc@your-oci-ip
    ```
 
 2. **Clone the infrastructure repository:**
