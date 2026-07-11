@@ -1,27 +1,16 @@
-# Infrastructure & Deployment Guide
+# Shared Traefik Reverse Proxy
 
-This project manages a shared Traefik reverse proxy on a cloud VM, enabling dynamic routing and automatic SSL (Let's Encrypt) for multiple containerized applications.
+This project runs a shared Traefik reverse proxy on a cloud VM, enabling dynamic routing and automatic SSL (Let's Encrypt) for multiple containerized applications.
 
-## 1. Provisioning the VM
+It assumes you already have a VM provisioned and ready to use.
 
-Before deploying Traefik you need a VM to run it on. Infrastructure-as-code templates for two providers are available in the [`deploy/`](./deploy/README.md) folder:
-
-| Provider | Tool | Free tier |
-|---|---|---|
-| AWS | CloudFormation | t2.micro — 750 hrs/month, 12 months only |
-| OCI | Terraform | VM.Standard.A1.Flex (ARM) — always free |
-
-Both are wired to GitHub Actions and deploy automatically when you push changes to their respective `deploy/aws/` or `deploy/oci/` folders. See [`deploy/README.md`](./deploy/README.md) for full setup instructions.
-
----
-
-## 2. Deploying to an Existing EC2
+## 1. Deploying to an Existing VM
 
 ### Prerequisites
-- **EC2 Instance:** Running Ubuntu (recommended) or Amazon Linux 2.
+- **VM:** Running Ubuntu (recommended), Amazon Linux 2023, or Oracle Linux.
 - **Docker & Docker Compose:** Installed on the instance.
-- **Security Group:** Ports `80` (HTTP), `443` (HTTPS), and `22` (SSH) must be open to your IP or globally.
-- **DNS Records:** Point your domain and subdomains (e.g., `traefik.example.com`, `api.example.com`, `app.example.com`) to the EC2 Elastic IP.
+- **Firewall / Security Group:** Ports `80` (HTTP), `443` (HTTPS), and `22` (SSH) must be open to your IP or globally.
+- **DNS Records:** Point your domain and subdomains (e.g., `traefik.example.com`, `api.example.com`, `app.example.com`) to the VM's public IP.
 
 ### Recommended Directory Structure
 We recommend keeping your infrastructure and applications organized as follows:
@@ -40,13 +29,13 @@ We recommend keeping your infrastructure and applications organized as follows:
 1. **Connect to your VM:**
    ```bash
    # AWS
-   ssh -i your-key.pem ec2-user@your-ec2-ip
+   ssh -i your-key.pem ec2-user@your-vm-ip
 
    # OCI
-   ssh opc@your-oci-ip
+   ssh opc@your-vm-ip
    ```
 
-2. **Clone the infrastructure repository:**
+2. **Clone this repository:**
    ```bash
    git clone https://github.com/your-repo/traefik-vm-deployment.git
    cd traefik-vm-deployment
