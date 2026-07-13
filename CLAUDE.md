@@ -8,7 +8,7 @@ the mandatory Git/PR workflow you must follow.
 
 ## 1. Project Overview
 
-This project is a **shared Traefik v3.0 reverse proxy** designed to run on a single, already
+This project is a **shared Traefik v3.7 reverse proxy** designed to run on a single, already
 provisioned cloud VM. It provides:
 
 - **Dynamic routing** to multiple containerized applications running on the same host.
@@ -29,7 +29,7 @@ Terraform, and GitHub Actions deployment paths existed historically but were rem
 
 ## 2. Architecture & How It Works
 
-- **Traefik** runs as a single Docker Compose service (`traefik:v3.0`, `restart: always`).
+- **Traefik** runs as a single Docker Compose service (`traefik:v3.7`, `restart: always`).
 - It uses the **Docker provider** with `exposedbydefault=false`, so containers must **opt in**
   with `traefik.enable=true`.
 - Two entrypoints: `web` (`:80`) and `websecure` (`:443`). All `web` traffic is globally
