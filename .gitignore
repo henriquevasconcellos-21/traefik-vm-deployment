@@ -8,3 +8,6 @@ traefik/data/acme.json
 .env
 .env.*
 !.env.example
+
+# Local deploy scripts / OCI provisioning (not part of the proxy layer)
+deploy/
